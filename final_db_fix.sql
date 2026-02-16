@@ -1,5 +1,14 @@
--- PROCEDIMIENTOS ALMACENADOS PARA SIS_CERTIFI_CPATEEC
--- Estos procedimientos manejan las consultas principales de la aplicación web
+-- ==========================================================
+-- SCRIPT DEFINITIVO DE PROCEDIMIENTOS ALMACENADOS
+-- Sistema de Certificaciones CPATEEC
+-- ==========================================================
+-- Tras analizar la estructura actual de sus tablas, se confirma
+-- que el esquema ya es compatible con la aplicación.
+-- Este script UNICAMENTE crea los procedimientos necesarios.
+
+-- INSTRUCCIONES:
+-- 1. Asegúrese de estar en la base de datos 'sis_certifi_cpateec'.
+-- 2. Ejecute este script completo.
 
 USE sis_certifi_cpateec;
 
