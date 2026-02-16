@@ -18,40 +18,30 @@ if (isset($_POST['cedula'])) {
         $stmt->execute();
 
         $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Importante: consumir todos los result sets de la llamada al procedimiento
+        // para evitar errores de "unbuffered queries" en consultas posteriores.
         $stmt->closeCursor();
+        try { while($stmt->nextRowset()); } catch (Exception $e) {}
 
         if ($resultados) {
             // Generar tokens para certificados que no lo tengan
             foreach ($resultados as &$cert) {
+                // Si el procedimiento ya devolvió un token, lo usamos
+                if (!empty($cert['token'])) {
+                    continue;
+                }
+
+                // Si no hay token, lo generamos y actualizamos la base de datos
+                $nuevoToken = generarToken();
                 if ($cert['tipo_certificado'] === 'CURSO') {
-                    // Verificar si ya tiene token
-                    $stmtCheck = $pdo->prepare("SELECT PCC_TOKEN FROM presentacion_certificado_curso WHERE PCC_CODIGO_UNICO = ?");
-                    $stmtCheck->execute([$cert['codigo_certificado']]);
-                    $tokenData = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-                    
-                    if (empty($tokenData['PCC_TOKEN'])) {
-                        // Generar y guardar nuevo token
-                        $nuevoToken = generarToken();
-                        $stmtUpdate = $pdo->prepare("UPDATE presentacion_certificado_curso SET PCC_TOKEN = ? WHERE PCC_CODIGO_UNICO = ?");
-                        $stmtUpdate->execute([$nuevoToken, $cert['codigo_certificado']]);
-                        $cert['token'] = $nuevoToken;
-                    } else {
-                        $cert['token'] = $tokenData['PCC_TOKEN'];
-                    }
+                    $stmtUpdate = $pdo->prepare("UPDATE presentacion_certificado_curso SET PCC_TOKEN = ? WHERE PCC_CODIGO_UNICO = ?");
+                    $stmtUpdate->execute([$nuevoToken, $cert['codigo_certificado']]);
+                    $cert['token'] = $nuevoToken;
                 } elseif ($cert['tipo_certificado'] === 'OEC') {
-                    // Para OEC
-                    $stmtCheck = $pdo->prepare("SELECT POEC_TOKEN FROM presentacion_certificado_oec WHERE POEC_CODIGO_CERTIFICACION = ?");
-                    $stmtCheck->execute([$cert['codigo_certificado']]);
-                    $tokenData = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-                    
-                    if (empty($tokenData['POEC_TOKEN'])) {
-                        $nuevoToken = generarToken();
-                        $stmtUpdate = $pdo->prepare("UPDATE presentacion_certificado_oec SET POEC_TOKEN = ? WHERE POEC_CODIGO_CERTIFICACION = ?");
-                        $stmtUpdate->execute([$nuevoToken, $cert['codigo_certificado']]);
-                        $cert['token'] = $nuevoToken;
-                    } else {
-                        $cert['token'] = $tokenData['POEC_TOKEN'];
-                    }
+                    $stmtUpdate = $pdo->prepare("UPDATE presentacion_certificado_oec SET POEC_TOKEN = ? WHERE POEC_CODIGO_CERTIFICACION = ?");
+                    $stmtUpdate->execute([$nuevoToken, $cert['codigo_certificado']]);
+                    $cert['token'] = $nuevoToken;
                 }
             }
             
@@ -70,7 +60,9 @@ if (isset($_POST['cedula'])) {
         }
     } catch (PDOException $e) {
         error_log('Database query failed: ' . $e->getMessage());
-        $response = ['success' => false, 'message' => 'Ocurrió un error al procesar su solicitud.'];
+        // Enviar un poco más de info si es necesario para depuración,
+        // pero por ahora mantenemos el mensaje genérico para seguridad.
+        $response = ['success' => false, 'message' => 'Ocurrió un error al procesar su solicitud. Detalle técnico: ' . $e->getCode()];
     }
 }
 
